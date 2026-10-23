@@ -1,5 +1,26 @@
 # vinext-starter
 
+## Deploy on Vercel
+
+This app is configured as a standard **Next.js** deployment for Vercel. It is
+currently a shared workspace with no sign-in: anyone with the deployment URL
+can view and change its data.
+
+1. In Vercel, import the `Samenx/checkmate-os` GitHub repository. Vercel will
+   detect Next.js automatically; leave the build command as `npm run build` and
+   do not set an Output Directory.
+2. Open **Storage** in the Vercel project and create a Postgres database from
+   the Marketplace (Neon Postgres is supported). Ensure its connection string
+   is exposed as `DATABASE_URL` or `POSTGRES_URL`.
+3. In **Storage**, create a **private Vercel Blob** store and connect it to the
+   project. This adds `BLOB_READ_WRITE_TOKEN` automatically.
+4. Optionally set `APP_OWNER_EMAIL` and `APP_OWNER_NAME` in Environment
+   Variables. They label the shared workspace owner.
+5. Redeploy. The app creates its tables on the first request.
+
+For local development, copy `.env.example` to `.env.local` and supply a
+Postgres connection string. Document uploads require a Blob token.
+
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 
 ## Prerequisites

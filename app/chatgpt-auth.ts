@@ -22,7 +22,17 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   const requestHeaders = await headers();
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);
-  if (!userId || !email) return null;
+  // Vercel does not inject the ChatGPT Sites identity headers. This deployment
+  // intentionally runs as one shared workspace until sign-in is added.
+  if (!userId || !email) {
+    const sharedEmail = process.env.APP_OWNER_EMAIL || "owner@checkmate.local";
+    return {
+      userId: process.env.APP_OWNER_ID || "shared-workspace-owner",
+      displayName: process.env.APP_OWNER_NAME || "CheckMate workspace",
+      email: sharedEmail,
+      fullName: process.env.APP_OWNER_NAME || "CheckMate workspace",
+    };
+  }
 
   const encodedFullName = requestHeaders.get(USER_FULL_NAME_HEADER);
   const fullName =

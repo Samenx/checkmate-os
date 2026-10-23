@@ -1,4 +1,4 @@
-import { env } from "cloudflare:workers";
+import { del } from "@vercel/blob";
 import {
   identity,
   allowed,
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
           .bind(recordId, user.workspace),
         audit(user, "Deleted", entity, r),
       ]);
-      if (entity === "documents" && env.BUCKET) await env.BUCKET.delete(r.key);
+      if (entity === "documents" && process.env.BLOB_READ_WRITE_TOKEN) await del(r.key);
       return Response.json({ ok: true });
     }
     if (action === "convert") {
