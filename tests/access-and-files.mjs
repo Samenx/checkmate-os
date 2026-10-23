@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { request } from 'playwright';
+import { DatabaseSync } from 'node:sqlite';
+import { readdirSync } from 'node:fs';
+const baseURL='http://127.0.0.1:5173';
+const anon=await request.newContext({baseURL});
+assert.equal((await anon.get('/api/workspace')).status(),401);
+assert.equal((await anon.get('/api/workspace',{headers:{'oai-authenticated-user-id':'forged','oai-authenticated-user-email':'forged@example.com'}})).status(),401);
+console.log('PASS unauthenticated and spoofed identity denied');
+const client=await request.newContext({baseURL});await client.get('/signin-with-chatgpt?return_to=%2F');
+let state=await (await client.get('/api/workspace')).json();const user=state.user;
+const upload=await client.post('/api/documents',{multipart:{file:{name:'qa-document.txt',mimeType:'text/plain',buffer:Buffer.from('CheckMate private document test')},organizationId:state.data.organizations[0].id}});assert.equal(upload.status(),200,await upload.text());const document=(await upload.json()).record;
+assert.equal((await anon.get(`/api/documents?id=${document.id}`)).status(),401);
+assert.equal(await (await client.get(`/api/documents?id=${document.id}`)).text(),'CheckMate private document test');
+assert.equal((await client.patch('/api/documents',{data:{id:document.id,name:'qa-renamed.txt'}})).status(),200);
+assert.equal((await client.post('/api/workspace',{headers:{Origin:'https://evil.invalid'},data:{action:'save',entity:'tasks',record:{name:'CSRF task',status:'To Do'}}})).status(),403);
+console.log('PASS private file storage, download, rename, and origin checks');
+const path='.wrangler/state/v3/d1/miniflare-D1DatabaseObject/';const dbFile=readdirSync(path).find(n=>n.endsWith('.sqlite')&&n!=='metadata.sqlite');const local=new DatabaseSync(path+dbFile);local.exec('PRAGMA busy_timeout=5000');
+try{
+ local.prepare('UPDATE users SET role=? WHERE id=?').run('Sales',user.id);
+ state=await (await client.get('/api/workspace')).json();assert.deepEqual(state.data.payments,[]);assert.deepEqual(state.data.participants,[]);assert.deepEqual(state.data.auditLogs,[]);
+ assert.equal((await client.post('/api/workspace',{data:{action:'settings',settings:{currency:'USD'}}})).status(),403);
+ assert.equal((await client.post('/api/workspace',{data:{action:'export'}})).status(),403);
+ assert.equal((await client.post('/api/workspace',{data:{action:'save',entity:'payments',record:{name:'forbidden',eventId:'none',value:1,status:'Received'}}})).status(),403);
+ local.prepare("UPDATE leads SET owner='someone-else@example.com' WHERE id=?").run(state.data.leads[0].id);const other=state.data.leads[0];
+ assert.equal((await client.post('/api/workspace',{data:{action:'save',entity:'leads',recordId:other.id,record:{...other,name:'Unauthorized edit'}}})).status(),403);
+ local.prepare('UPDATE leads SET owner=? WHERE id=?').run(user.email,other.id);
+ console.log('PASS role restrictions, restricted exports, and assignment permissions');
+}finally{local.prepare("UPDATE users SET role='Owner' WHERE id=?").run(user.id);local.close();}
+assert.equal((await client.post('/api/workspace',{data:{action:'delete',entity:'documents',recordId:document.id}})).status(),200);
+const tick=await client.post('/api/automation-tick');assert.equal(tick.status(),200,await tick.text());const status=await (await client.get('/api/automation-tick')).json();assert.ok(status.runs.length);console.log('PASS scheduler writer and persisted readback');
+await anon.dispose();await client.dispose();
