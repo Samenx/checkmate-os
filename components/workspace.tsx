@@ -33,7 +33,6 @@ import {
   Moon,
   X,
   Pin,
-  LogOut,
   RefreshCw,
   Upload,
   Download,
@@ -495,13 +494,6 @@ export default function Workspace() {
             <strong>{user?.name || "Your workspace"}</strong>
             <span>{user?.role || "Private access"}</span>
           </div>
-          <a
-            href="/signout-with-chatgpt?return_to=%2F"
-            target="_top"
-            title="Sign out"
-          >
-            <LogOut size={16} />
-          </a>
         </div>
       </aside>
       {mobile && (
@@ -618,14 +610,6 @@ export default function Workspace() {
               <span className="brand-symbol">♞</span>
               <h1>Your next move starts here.</h1>
               <p>{error}</p>
-              <a
-                className="button primary"
-                href="/signin-with-chatgpt?return_to=%2F"
-                target="_top"
-              >
-                Sign in to CheckMate OS
-                <ArrowUpRight size={16} />
-              </a>
               <button
                 className="button"
                 onClick={() => refresh().catch(() => {})}
