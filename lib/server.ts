@@ -9,7 +9,7 @@ export const decode=(r:any)=>{const out:any={};for(const [k,v] of Object.entries
 const connectionString=process.env.DATABASE_URL||process.env.POSTGRES_URL;
 let client:any;
 const sql=()=>{if(!connectionString)throw new Error('Database unavailable. Connect a Postgres database in Vercel Storage and redeploy.');return client||(client=neon(connectionString));};
-const postgres=(query:string)=>{const ignore=/INSERT OR IGNORE INTO/i.test(query);const converted=query.replace(/INSERT OR IGNORE INTO/gi,'INSERT INTO').replace(/\?/g,(_,i:string)=>'$'+(Number(i)+1));return ignore?`${converted} ON CONFLICT DO NOTHING`:converted;};
+const postgres=(query:string)=>{const ignore=/INSERT OR IGNORE INTO/i.test(query);let parameter=0;const converted=query.replace(/INSERT OR IGNORE INTO/gi,'INSERT INTO').replace(/\?/g,()=>`$${++parameter}`);return ignore?`${converted} ON CONFLICT DO NOTHING`:converted;};
 const statement=(query:string,params:any[]=[]):any=>({query,params,bind(...values:any[]){return statement(query,values);},async all(){const results=await sql().query(postgres(query),params);return {results};},async first<T=any>(){const results=await sql().query(postgres(query),params);return (results[0]||null) as T|null;},async run(){await sql().query(postgres(query),params);return {success:true};}});
 export const db=()=>({prepare:(query:string)=>statement(query),batch:async(statements:any[])=>{for(const s of statements)await s.run();return {success:true};}});
 const schema:Record<string,string[]>=Object.fromEntries(Object.entries(specific).map(([table,fields])=>[table,fields]));
