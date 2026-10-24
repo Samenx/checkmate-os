@@ -8,6 +8,10 @@ const clean = (x: any) =>
       .trim(),
   mail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   tel = /^(?:\+|00)?[\d\s().-]{8,20}$/;
+const emailWithoutJoinedPhone = (value: string) =>
+  value
+    .replace(/^[-._+]+/, "")
+    .replace(/^(?:(?:\+?962|00962|0)?7\d{7,10})(?=[A-Za-z])/i, "");
 function target(raw: string) {
   let u: URL;
   try {
@@ -121,9 +125,9 @@ function nshamah(html: string, url: string) {
     txt = clean(section.text()),
     emails = [
       ...new Set(
-        (txt.match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g) || []).filter((x) =>
-          mail.test(x),
-        ),
+        (txt.match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g) || [])
+          .map(emailWithoutJoinedPhone)
+          .filter((x) => mail.test(x)),
       ),
     ],
     phones = [
@@ -143,9 +147,10 @@ function nshamah(html: string, url: string) {
           ),
       ),
     ],
-    slug = clean(
-      decodedPath(new URL(url)).split("/").pop()?.replace(/-/g, " ") || "",
-    );
+    path = decodedPath(new URL(url)).split("/").filter(Boolean),
+    schoolsIndex = path.findIndex((part) => part === "schools"),
+    cityFromPath = clean(path[schoolsIndex + 1]),
+    slug = clean(path.at(-1)?.replace(/-/g, " ") || "");
   return {
     name: h1 || clean(org.name) || slug,
     emails: emails.length
@@ -159,7 +164,9 @@ function nshamah(html: string, url: string) {
         ? [clean(org.telephone)]
         : [],
     address: clean(org.address?.streetAddress),
-    city: clean(org.address?.addressLocality),
+    // Nshamah puts the city in the URL; structured data can incorrectly say
+    // "Jordan", which is the country rather than the city.
+    city: cityFromPath || clean(org.address?.addressLocality),
     area: "",
     website: "",
     description: clean(org.description),
