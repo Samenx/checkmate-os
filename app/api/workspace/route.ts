@@ -20,6 +20,10 @@ export const dynamic = "force-dynamic";
 function failure(e: any) {
   console.error(e);
   const message = String(e?.message || "");
+  const safeDetail = message
+    .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[connection string redacted]")
+    .replace(/(password|token|secret)=[^\s,&]+/gi, "$1=[redacted]")
+    .slice(0, 240);
   return Response.json(
     {
       error:
@@ -32,7 +36,7 @@ function failure(e: any) {
             : "Unable to complete the request. " +
               (message.includes("Demo data")
                 ? message
-                : "Please try again."),
+                : safeDetail || "Please try again."),
     },
     { status: e.status || 400 },
   );
