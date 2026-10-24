@@ -49,8 +49,6 @@ export async function GET() {
       .bind(user.workspace)
       .first();
     if (!initialized && user.role === "Owner") {
-      const existing = await rows("organizations", user.workspace);
-      if (!existing.length) await seed(user);
       await db()
         .prepare(
           "INSERT OR IGNORE INTO settings(id,workspace,data) VALUES(?,?,?)",
