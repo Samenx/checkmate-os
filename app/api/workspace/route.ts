@@ -19,16 +19,19 @@ import { defaultSettings } from "@/lib/config";
 export const dynamic = "force-dynamic";
 function failure(e: any) {
   console.error(e);
+  const message = String(e?.message || "");
   return Response.json(
     {
       error:
         e instanceof HttpError
           ? e.message
-          : String(e.message).includes("FOREIGN KEY")
+          : message.includes("Database unavailable")
+            ? "Database is not connected. Add DATABASE_URL (or POSTGRES_URL) to this Vercel project's Production environment, then redeploy."
+          : message.includes("FOREIGN KEY")
             ? "This record has linked history. Archive it instead."
             : "Unable to complete the request. " +
-              (String(e.message).includes("Demo data")
-                ? e.message
+              (message.includes("Demo data")
+                ? message
                 : "Please try again."),
     },
     { status: e.status || 400 },
