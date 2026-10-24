@@ -170,7 +170,8 @@ function nshamah(html: string, url: string) {
     area: "",
     website: "",
     description: clean(org.description),
-    logoUrl: "",
+    // Nshamah's first school image is the best available logo/identity image.
+    logoUrl: imgs[0] || "",
     coverImageUrl: imgs[0] || "",
     galleryImages: imgs,
   };

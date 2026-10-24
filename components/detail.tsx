@@ -126,7 +126,13 @@ export default function Detail({
         Back to {definitions[entity].title.toLowerCase()}
       </button>
       <div className="detail-header">
-        <Avatar name={r.name} />
+        <Avatar
+          name={r.name}
+          imageUrl={
+            entity === "organizations" ? r.logoUrl || r.coverImageUrl : ""
+          }
+          imageFit="contain"
+        />
         <div>
           <span className="eyebrow">
             {definitions[entity].singular.toUpperCase()}
