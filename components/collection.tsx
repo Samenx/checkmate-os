@@ -198,6 +198,7 @@ export default function Collection({
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState(initialFilter);
   const [priority, setPriority] = useState("");
+  const [leadFilter, setLeadFilter] = useState("");
   const [view, setView] = useState(
     entity === "deals"
       ? "kanban"
@@ -253,6 +254,8 @@ export default function Collection({
         .filter(
           (r: any) =>
             (!status || r.status === status) &&
+            (entity !== "organizations" || !leadFilter ||
+              ((data.leads || []).some((l: any) => l.organizationId === r.id) ? "lead" : "non-lead") === leadFilter) &&
             (!priority || r.priority === priority) &&
             (!search ||
               Object.values(r).some((v) =>
@@ -270,12 +273,12 @@ export default function Collection({
               : String(x).localeCompare(String(y))) * (asc ? 1 : -1)
           );
         }),
-    [data, entity, status, priority, search, sort, asc],
+    [data, entity, status, priority, leadFilter, search, sort, asc],
   );
   useEffect(() => {
     setPage(0);
     setSelected([]);
-  }, [search, status, priority]);
+  }, [search, status, priority, leadFilter]);
   const currency = settings.currency;
   const org = (r: any) =>
     (data.organizations || []).find((o: any) => o.id === r.organizationId)
@@ -453,6 +456,13 @@ export default function Collection({
             <option key={s}>{s}</option>
           ))}
         </select>
+        {entity === "organizations" && (
+          <select aria-label="Filter organizations by lead relationship" value={leadFilter} onChange={(e) => setLeadFilter(e.target.value)}>
+            <option value="">All organizations</option>
+            <option value="lead">Leads</option>
+            <option value="non-lead">Non-leads</option>
+          </select>
+        )}
         {["leads", "tasks"].includes(entity) && (
           <select
             aria-label="Filter priority"
@@ -706,8 +716,11 @@ export default function Collection({
               onClick={() => onOpen(entity, r)}
             >
               <div className="row-between">
-                <Avatar name={r.name} imageUrl={entity === "organizations" ? (r.custom?.logoUrl || r.custom?.coverImageUrl || r.custom?.galleryImages?.[0] || "") : ""} imageFit={r.custom?.logoUrl ? "contain" : "cover"}/>
-                <Badge>{r.status}</Badge>
+                <Avatar name={r.name} imageUrl={entity === "organizations" ? (r.custom?.logoUrl || r.custom?.coverImageUrl || r.custom?.galleryImages?.[0] || "") : entity === "inventory" ? r.imageUrl || "" : ""} imageFit={entity === "organizations" && r.custom?.logoUrl ? "contain" : "cover"}/>
+                <span className="row">
+                  {(data.leads || []).some((l: any) => l.organizationId === r.id) && <Badge>LEAD</Badge>}
+                  <Badge>{r.status}</Badge>
+                </span>
               </div>
               <h3>{r.name}</h3>
               <p>{r.contactPerson || org(r) || r.type || r.city}</p>

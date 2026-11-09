@@ -59,6 +59,7 @@ import Dashboard from "./dashboard";
 import Collection, { CalendarView } from "./collection";
 import RecordForm from "./record-form";
 import Detail from "./detail";
+import Gallery from "./gallery";
 import Settings from "./settings";
 import {
   MyDay,
@@ -104,7 +105,7 @@ const groups = [
       ["financial", "Financial overview", Wallet],
       ["expenses", "Expenses", Receipt],
       ["reports", "Reports & analytics", BarChart3],
-      ["documents", "Documents", FolderOpen],
+      ["documents", "Gallery & documents", FolderOpen],
     ],
   },
   {
@@ -293,7 +294,7 @@ export default function Workspace() {
   async function executeAction(action: string, e?: string, r?: any) {
     try {
       const result = await api({ action, entity: e, recordId: r?.id });
-      await refresh();
+      const refreshed = await refresh();
       toast(
         action === "seed"
           ? "Fictional demo workspace loaded"
@@ -302,7 +303,10 @@ export default function Workspace() {
             : "Action completed",
       );
       if (action === "convert") onOpen("deals", result.record);
-      if (action === "convertOrganization") onOpen("leads", result.record);
+      if (action === "convertOrganization") {
+        const organization = refreshed.data.organizations.find((o: any) => o.id === result.record.organizationId);
+        if (organization) onOpen("organizations", organization);
+      }
       if (action === "eventFromDeal") onOpen("events", result.record);
     } catch (err: any) {
       toast(err.message, true);
@@ -731,7 +735,7 @@ export default function Workspace() {
                   ) : module === "notifications" ? (
                     <Section title={`${unread} unread notifications`} />
                   ) : module === "documents" ? (
-                    <Section title="Business documents" />
+                    <Gallery data={data} onUpload={setUpload} onDelete={onDelete} />
                   ) : definitions[entity] ? (
                     <Collection
                       key={module}

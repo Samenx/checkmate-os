@@ -235,10 +235,13 @@ export async function POST(req: Request) {
     if (!allowed(user, "organizations", undefined, true))
       throw new HttpError(403, "Your role cannot add organizations.");
     const b: any = await req.json();
-    if (Date.now() - (hits.get(user.workspace) || 0) < 3000)
-      throw new HttpError(429, "Please wait before another import.");
-    hits.set(user.workspace, Date.now());
     if (b.action === "preview") {
+      // Throttle only remote page reads. A preview is immediately followed by
+      // a local create request, so throttling both actions makes every normal
+      // import attempt appear rate-limited.
+      if (Date.now() - (hits.get(user.workspace) || 0) < 3000)
+        throw new HttpError(429, "Please wait before reviewing another page.");
+      hits.set(user.workspace, Date.now());
       const p = await page(b.url),
         x = extract(p.html, p.url),
         l = await rows("leads", user.workspace),

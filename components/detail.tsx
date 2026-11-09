@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { definitions, labels, money } from "@/lib/config";
 import { Section, Badge, Avatar, Empty } from "./ui";
+import Tournament from "./tournament";
 export default function Detail({
   entity,
   record: r,
@@ -63,7 +64,9 @@ export default function Detail({
             (name === "organizations" && x.id === r.organizationId))),
     );
   const tabs =
-    entity === "events"
+    entity === "organizations"
+      ? ["Overview", "Events", "Participants", "Contacts", "Deals", "Tasks & Activities", "Documents"]
+      : entity === "events"
       ? [
           "Overview",
           "Planning",
@@ -73,6 +76,7 @@ export default function Detail({
           "Financials",
           "Documents",
           "Results",
+          "Tournament",
         ]
       : ["Overview", "Timeline", "Related records", "Notes", "Documents"];
   const checks = linked("checklists");
@@ -140,9 +144,11 @@ export default function Detail({
           </span>
           <h1>{r.name}</h1>
           <div className="row">
+            {entity === "organizations" && (data.leads || []).some((l: any) => l.organizationId === r.id) && <Badge>LEAD</Badge>}
             <Badge>{r.status}</Badge>
             <span className="muted">{org?.name || r.city || r.type}</span>
           </div>
+          {entity === "organizations" && <p className="muted">{[r.type, r.email, r.phone, r.address, r.city].filter(Boolean).join(" · ")}</p>}
         </div>
         <div className="push-right row">
           <button className="button" onClick={() => onEdit(entity, r)}>
@@ -161,10 +167,11 @@ export default function Detail({
       </div>
       <div className="detail-actions">
         {entity === "organizations" && (
-          <button className="button primary" onClick={() => onAction("convertOrganization", entity, r)}>
-            <ArrowRight size={15} />
-            Convert to lead
-          </button>
+          <>
+            {!(data.leads || []).some((l: any) => l.organizationId === r.id) && <button className="button primary" onClick={() => onAction("convertOrganization", entity, r)}><ArrowRight size={15} />Convert to lead</button>}
+            <button className="button" onClick={() => onNew("events", { organizationId: r.id })}><Plus size={15} />New event</button>
+            <button className="button" onClick={() => onNew("tasks", { organizationId: r.id })}><Plus size={15} />New task</button>
+          </>
         )}
         {entity === "leads" && (
           <>
@@ -314,6 +321,10 @@ export default function Detail({
         )}
         {entity === "events" && (
           <>
+            <button className="button primary" onClick={() => setTab("Tournament")}>
+              <span aria-hidden="true">♟</span>
+              START
+            </button>
             <button
               className="button primary"
               onClick={() => onNew("participants", defaults)}
@@ -358,6 +369,15 @@ export default function Detail({
       </div>
       {tab === "Overview" && (
         <>
+          {entity === "organizations" && (() => {
+            const orgEvents = (data.events || []).filter((x: any) => x.organizationId === r.id);
+            const orgDeals = (data.deals || []).filter((x: any) => x.organizationId === r.id);
+            const orgTasks = (data.tasks || []).filter((x: any) => x.organizationId === r.id);
+            const eventIds = new Set(orgEvents.map((x: any) => x.id));
+            const expected = orgEvents.reduce((s: number, x: any) => s + Number(x.value || 0), 0);
+            const received = (data.payments || []).filter((p: any) => eventIds.has(p.eventId) && p.status === "Received").reduce((s: number, p: any) => s + Number(p.value || 0), 0);
+            return <div className="kpi-grid">{[["Events", orgEvents.length], ["Contacts", (data.contacts || []).filter((x: any) => x.organizationId === r.id).length], ["Open tasks", orgTasks.filter((x: any) => !["Completed", "Cancelled"].includes(x.status)).length], ["Won deals", orgDeals.filter((x: any) => x.status === "Closed Won").length], ["Event revenue", money(expected, currency)], ["Received", money(received, currency)]].map(([label, value]: any) => <div className="kpi-card" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>;
+          })()}
           <div className="detail-grid">
             <Section title="Record overview">
               <dl className="record-fields">
@@ -564,6 +584,26 @@ export default function Detail({
           )}
         </>
       )}
+      {entity === "organizations" && tab === "Events" && (
+        <Section title="Organization events" action={<button className="button primary" onClick={() => onNew("events", { organizationId: r.id })}><Plus size={15}/>New event</button>}>
+          {relatedList("events")}
+        </Section>
+      )}
+      {entity === "organizations" && tab === "Participants" && (() => {
+        const eventIds = new Set((data.events || []).filter((e: any) => e.organizationId === r.id).map((e: any) => e.id));
+        const all = (data.participants || []).filter((p: any) => p.organizationId === r.id || eventIds.has(p.eventId));
+        const unique = new Map<string, any[]>();
+        for (const p of all) { const k = String(p.name || "").trim().toLocaleLowerCase(); unique.set(k, [...(unique.get(k) || []), p]); }
+        return <Section title="Participants across events" subtitle={`${unique.size} people · grouped to avoid repeating the same name`}>
+          {unique.size ? <div className="linked-list">{[...unique.values()].map((history) => { const p = history[0]; return <article className="participant-row" key={p.id}><span><strong>{p.name}</strong><small>{history.map((x: any) => (data.events || []).find((e: any) => e.id === x.eventId)?.name).filter(Boolean).join(" · ") || "No event history"}</small></span><Badge>{history.length} event{history.length === 1 ? "" : "s"}</Badge></article>; })}</div> : <p className="quiet-empty">No participants recorded for this organization yet.</p>}
+        </Section>;
+      })()}
+      {entity === "organizations" && tab === "Contacts" && <Section title="Organization contacts" action={<button className="button primary" onClick={() => onNew("contacts", { organizationId: r.id })}><Plus size={15}/>Add contact</button>}>{relatedList("contacts")}</Section>}
+      {entity === "organizations" && tab === "Deals" && <Section title="Deals and opportunities">{relatedList("deals")}</Section>}
+      {entity === "organizations" && tab === "Tasks & Activities" && <div className="detail-related">{relatedList("tasks")}{relatedList("activities")}</div>}
+      {entity === "organizations" && tab === "Documents" && <Section title="Organization documents" action={<button className="button primary" onClick={() => onUpload(defaults)}><Plus size={15}/>Upload file</button>}>
+        <div className="linked-list">{linked("documents").map((d: any) => <div className="participant-row" key={d.id}>{String(d.mime || "").startsWith("image/") && <a href={`/api/documents?id=${d.id}&preview=1`} target="_blank" rel="noreferrer"><img src={`/api/documents?id=${d.id}&preview=1`} alt={d.name} style={{width:72,height:56,objectFit:"cover",borderRadius:8}}/></a>}<span><strong>{d.name}</strong><small>{d.mime || "File"} · {Math.ceil((d.size || 0) / 1024)} KB</small></span><a className="button small" href={`/api/documents?id=${d.id}&preview=1`} target="_blank" rel="noreferrer">Preview</a><a className="button small" href={`/api/documents?id=${d.id}`}>Download</a><button className="icon-button danger" aria-label="Delete document" onClick={() => onDelete("documents", d)}><Trash2 size={15}/></button></div>)}</div>
+      </Section>}
       {(tab === "Timeline" || tab === "Notes") && (
         <Section
           title={
@@ -875,6 +915,7 @@ export default function Detail({
           </p>
         </Section>
       )}
+      {tab === "Tournament" && <Tournament event={r} data={data} onSave={onSave} />}
     </>
   );
 }
