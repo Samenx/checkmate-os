@@ -270,16 +270,23 @@ export default function Tournament({ event, data, onSave }: any) {
           <div className="knockout-bracket" style={{ "--bracket-rows": firstRoundCount * 4 } as any}>
             {rounds.map((round, roundIndex) => (
               <div className="knockout-round" key={`round-${roundIndex}`}>
-                <h4>{roundIndex === rounds.length - 1 && round.length === 1 ? "Final" : `Round ${roundIndex + 1}`}</h4>
+                <h4>{roundIndex === rounds.length - 1 && round.length === 1 ? "Final" : roundIndex === 0 && round.some((match) => match.bye) ? "Play-in round" : `Round ${roundIndex + 1}`}</h4>
                 {round.map((match, matchIndex) => {
                   const startRow = matchIndex * 4 * 2 ** roundIndex + 2 ** (roundIndex + 1);
+                  const connectorStyle = {
+                    gridRow: `${startRow} / span 2`,
+                    "--line-offset": `${34 * (2 ** roundIndex - 1)}px`,
+                    "--line-height": `${34 * 2 ** (roundIndex + 1)}px`,
+                  } as any;
                   return (
                     match.bye ? (
-                      <div className="knockout-advance" key={match.id} style={{ gridRow: `${startRow} / span 2` }}>
+                      <div className={`knockout-advance ${roundIndex > 0 ? "has-connector" : ""}`} key={match.id} style={connectorStyle}>
+                        {roundIndex > 0 && <i className="knockout-connector" />}
                         <strong>{playerName(match.white)}</strong><span>Direct advance</span>
                       </div>
                     ) : (
-                      <div className="knockout-match" key={match.id} style={{ gridRow: `${startRow} / span 2` }}>
+                      <div className={`knockout-match ${roundIndex > 0 ? "has-connector" : ""}`} key={match.id} style={connectorStyle}>
+                        {roundIndex > 0 && <i className="knockout-connector" />}
                         <div className={match.result === "1-0" ? "winner" : ""}>
                           <span>{playerName(match.white)}</span>
                           {match.result === "1-0" && <b>W</b>}
@@ -309,7 +316,7 @@ export default function Tournament({ event, data, onSave }: any) {
   }
 
   return (
-    <div className="detail-related">
+    <div className="detail-related tournament-workspace">
       <Section
         title={event.name}
         subtitle={`${tournament.format} · ${tournament.control} ${tournament.preset} · ${tournament.players.length} players`}

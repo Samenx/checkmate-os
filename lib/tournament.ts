@@ -50,9 +50,10 @@ export function roundRobinPairings(players: TournamentPlayer[], boards = players
 export function knockoutPairings(players: TournamentPlayer[], boards=players.length): Match[][] {
   const size=2**Math.ceil(Math.log2(Math.max(2,players.length)));
   const byeCount=size-players.length;
+  const seeded=[...players].sort((a,b)=>(b.rating||0)-(a.rating||0)||a.name.localeCompare(b.name));
   const first:Match[]=[];
-  for(let i=0;i<byeCount;i++){const g=match(1,first.length+1,players[i].id,null,true);first.push(g);}
-  for(let i=byeCount;i<players.length;i+=2){const a=players[i],b=players[i+1];if(!b)continue;first.push(match(1,first.length+1,a.id,b.id));}
+  for(let i=0;i<byeCount;i++){const g=match(1,first.length+1,seeded[i].id,null,true);first.push(g);}
+  for(let i=byeCount;i<seeded.length;i+=2){const a=seeded[i],b=seeded[i+1];if(!b)continue;first.push(match(1,first.length+1,a.id,b.id));}
   return [first.map((g,i)=>({...g,board:i%Math.max(1,boards)+1}))];
 }
 
