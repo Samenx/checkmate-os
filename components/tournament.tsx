@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Badge, Section } from "./ui";
+import { Trophy } from "lucide-react";
 import {
   advanceKnockout,
   knockoutPairings,
@@ -204,6 +205,10 @@ export default function Tournament({ event, data, onSave }: any) {
 
   const playerName = (id: string | null) =>
     tournament.players.find((player: any) => player.id === id)?.name || "—";
+  const seededPlayers = [...tournament.players].sort(
+    (a: any, b: any) => (Number(b.rating) || 0) - (Number(a.rating) || 0) || a.name.localeCompare(b.name),
+  );
+  const playerSeed = (id: string | null) => seededPlayers.findIndex((player: any) => player.id === id) + 1;
 
   function ResultPicker({ match, roundIndex }: { match: Match; roundIndex: number }) {
     if (match.bye) return <span className="tournament-bye">Advances</span>;
@@ -265,12 +270,16 @@ export default function Tournament({ event, data, onSave }: any) {
   function KnockoutBracket() {
     const firstRoundCount = rounds[0]?.length || 1;
     return (
-      <Section title="Elimination bracket" subtitle="Select a match result to advance the winner to the next round.">
+      <Section title="Elimination bracket" subtitle="Click a player name to record the win and advance them.">
         <div className="knockout-bracket-scroll">
+          <div className="knockout-bracket-heading">
+            <strong>{event.name}</strong>
+            <small>{tournament.startedAt ? new Date(tournament.startedAt).toLocaleDateString() : "Tournament bracket"}</small>
+          </div>
           <div className="knockout-bracket" style={{ "--bracket-rows": firstRoundCount * 4 } as any}>
             {rounds.map((round, roundIndex) => (
               <div className="knockout-round" key={`round-${roundIndex}`}>
-                <h4>{roundIndex === rounds.length - 1 && round.length === 1 ? "Final" : roundIndex === 0 && round.some((match) => match.bye) ? "Play-in round" : `Round ${roundIndex + 1}`}</h4>
+                <h4>{roundIndex === rounds.length - 1 && round.length === 1 ? "Final" : roundIndex === 0 && round.some((match) => match.bye) ? "Play-in" : `Round ${roundIndex + 1}`}</h4>
                 {round.map((match, matchIndex) => {
                   const startRow = matchIndex * 4 * 2 ** roundIndex + 2 ** (roundIndex + 1);
                   const connectorStyle = {
@@ -287,28 +296,23 @@ export default function Tournament({ event, data, onSave }: any) {
                     ) : (
                       <div className={`knockout-match ${roundIndex > 0 ? "has-connector" : ""}`} key={match.id} style={connectorStyle}>
                         {roundIndex > 0 && <i className="knockout-connector" />}
-                        <div className={match.result === "1-0" ? "winner" : ""}>
-                          <span>{playerName(match.white)}</span>
-                          {match.result === "1-0" && <b>W</b>}
-                        </div>
-                        <div className={match.result === "0-1" ? "winner" : ""}>
-                          <span>{playerName(match.black)}</span>
-                          {match.result === "0-1" && <b>W</b>}
-                        </div>
-                        <ResultPicker match={match} roundIndex={roundIndex} />
+                        <button className={`knockout-player ${match.result === "1-0" ? "winner" : ""}`} disabled={tournament.state !== "In Progress" || roundIndex > activeRoundIndex} onClick={() => recordResult(match, "1-0")}>
+                          <span><small>{playerSeed(match.white)}.</small>{playerName(match.white)}</span>{match.result === "1-0" && <b>W</b>}
+                        </button>
+                        <button className={`knockout-player ${match.result === "0-1" ? "winner" : ""}`} disabled={tournament.state !== "In Progress" || roundIndex > activeRoundIndex} onClick={() => recordResult(match, "0-1")}>
+                          <span><small>{playerSeed(match.black)}.</small>{playerName(match.black)}</span>{match.result === "0-1" && <b>W</b>}
+                        </button>
                       </div>
                     )
                   );
                 })}
               </div>
             ))}
-            {tournament.state === "Completed" && standings[0] && (
-              <div className="knockout-champion">
-                <span aria-hidden="true">🏆</span>
-                <strong>{standings[0].name}</strong>
-                <small>Winner</small>
-              </div>
-            )}
+            <div className="knockout-champion">
+              <Trophy size={34} strokeWidth={1.7} />
+              {tournament.state === "Completed" && standings[0] ? <strong>{standings[0].name}</strong> : null}
+              <small>Winner</small>
+            </div>
           </div>
         </div>
       </Section>
