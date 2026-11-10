@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Badge, Section } from "./ui";
-import { Trophy } from "lucide-react";
+import { Trophy, ArrowLeft, ArrowRight, Check, Crown, Swords, Users, Shuffle, CircleDot, Sparkles } from "lucide-react";
 import {
   advanceKnockout,
   knockoutPairings,
@@ -21,10 +21,15 @@ export default function Tournament({ event, data, onSave }: any) {
   const [boards, setBoards] = useState(4);
   const [error, setError] = useState("");
   const [viewRound, setViewRound] = useState(-1);
+  const [setupStep, setSetupStep] = useState(0);
+  const [selectedOrganization, setSelectedOrganization] = useState("");
+  const [rosterSearch, setRosterSearch] = useState("");
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [previewPairings, setPreviewPairings] = useState<Match[][]>([]);
   const tournament = event.custom?.tournament;
-  const players = useMemo(() => {
+  const eventPlayers = useMemo(() => {
     return (data.participants || [])
-      .filter((p: any) => p.eventId === event.id && p.status !== "Cancelled")
+      .filter((p: any) => (selectedOrganization ? (p.organizationId === selectedOrganization || p.eventId === event.id) : p.eventId === event.id) && p.status !== "Cancelled")
       .map((p: any) => ({
         id: p.id,
         name: p.name,
@@ -34,7 +39,10 @@ export default function Tournament({ event, data, onSave }: any) {
             (o: any) => o.id === p.organizationId,
           )?.name || "",
       }));
-  }, [event.id, data.participants, data.organizations]);
+  }, [event.id, selectedOrganization, data.participants, data.organizations]);
+  const players = selectedPlayerIds.length
+    ? eventPlayers.filter((p: any) => selectedPlayerIds.includes(p.id))
+    : eventPlayers;
 
   const rounds: Match[][] = tournament?.rounds || [];
   const allMatches = rounds.flat();
@@ -60,9 +68,9 @@ export default function Tournament({ event, data, onSave }: any) {
     }
   }
 
-  function start() {
+  function previewDraw() {
     if (players.length < 2) {
-      setError("Register at least two participants for this event first.");
+      setError("Select at least two active participants to create a draw.");
       return;
     }
     const pairings =
@@ -71,6 +79,15 @@ export default function Tournament({ event, data, onSave }: any) {
         : format === "Round Robin"
           ? roundRobinPairings(players, boards)
           : knockoutPairings(players, boards);
+    setPreviewPairings(pairings);
+    setSetupStep(3);
+  }
+
+  function start() {
+    if (!previewPairings.length) {
+      setError("Preview the draw before starting the tournament.");
+      return;
+    }
     persist({
       state: "In Progress",
       format,
@@ -79,7 +96,7 @@ export default function Tournament({ event, data, onSave }: any) {
       roundCount: Number(roundCount),
       boards: Number(boards),
       players,
-      rounds: pairings,
+      rounds: previewPairings,
       startedAt: new Date().toISOString(),
       history: [],
     });
@@ -129,77 +146,15 @@ export default function Tournament({ event, data, onSave }: any) {
 
   if (!tournament) {
     return (
-      <Section
-        title="START · Tournament"
-        subtitle="Create pairings from the participants already registered for this event."
-      >
-        <div className="form-grid">
-          <label>
-            <span>Tournament format</span>
-            <select value={format} onChange={(e) => setFormat(e.target.value)}>
-              <option>Swiss System</option>
-              <option>Single Elimination</option>
-              <option>Round Robin</option>
-            </select>
-          </label>
-          <label>
-            <span>Time control</span>
-            <select
-              value={control}
-              onChange={(e) => {
-                setControl(e.target.value);
-                setPreset(
-                  ({
-                    Bullet: "1+0",
-                    Blitz: "5+0",
-                    Rapid: "10+0",
-                    Classical: "60+0",
-                    Custom: "5+0",
-                  } as any)[e.target.value],
-                );
-              }}
-            >
-              {["Bullet", "Blitz", "Rapid", "Classical", "Custom"].map(
-                (value) => (
-                  <option key={value}>{value}</option>
-                ),
-              )}
-            </select>
-          </label>
-          <label>
-            <span>Base time + increment</span>
-            <input value={preset} onChange={(e) => setPreset(e.target.value)} />
-          </label>
-          <label>
-            <span>Available boards</span>
-            <input
-              type="number"
-              min="1"
-              value={boards}
-              onChange={(e) => setBoards(Math.max(1, Number(e.target.value)))}
-            />
-          </label>
-          {format === "Swiss System" && (
-            <label>
-              <span>Rounds</span>
-              <input
-                type="number"
-                min="1"
-                value={roundCount}
-                onChange={(e) => setRoundCount(Math.max(1, Number(e.target.value)))}
-              />
-            </label>
-          )}
-        </div>
-        <p className="notes-text tournament-player-count">
-          {players.length} participants registered. Add or remove players in the
-          Participants tab before starting.
-        </p>
+      <div className="tournament-setup">
+        <header className="tournament-setup-header"><div><span className="tournament-eyebrow"><Sparkles size={13} /> MATCHDAY STUDIO</span><h2>Build your tournament</h2><p>A calmer, clearer way to get every player to the board.</p></div><span className="tournament-setup-event"><Trophy size={15} /> {event.name}</span></header>
+        <div className="tournament-steps" aria-label="Tournament setup progress">{["Organization", "Format", "Players", "Pairings"].map((label, index) => <div className={index === setupStep ? "current" : index < setupStep ? "done" : ""} key={label}><span>{index < setupStep ? <Check size={13} /> : index + 1}</span>{label}</div>)}</div>
+        {setupStep === 0 && <section className="tournament-setup-page"><span className="tournament-step-kicker">STEP 1 · YOUR CLUB</span><h3>Who’s hosting this tournament?</h3><p>Choose an organization and we’ll bring in its registered participants automatically.</p><div className="organization-choice-grid">{(data.organizations || []).map((org: any) => { const count = (data.participants || []).filter((p: any) => p.organizationId === org.id && p.status !== "Cancelled").length; return <button key={org.id} className={`organization-choice ${selectedOrganization === org.id ? "selected" : ""}`} onClick={() => setSelectedOrganization(org.id)}><span className="organization-choice-icon"><Users size={20} /></span><strong>{org.name}</strong><small>{count} registered {count === 1 ? "player" : "players"}</small>{selectedOrganization === org.id && <Check className="organization-check" size={17} />}</button>; })}</div><button className="button tournament-next" disabled={!selectedOrganization} onClick={() => { setSelectedPlayerIds([]); setSetupStep(1); }}>Choose a format <ArrowRight size={15} /></button>{(data.organizations || []).length === 0 && <p className="tournament-inline-hint">Add an organization before creating a tournament.</p>}</section>}
+        {setupStep === 1 && <section className="tournament-setup-page"><span className="tournament-step-kicker">STEP 2 · GAME PLAN</span><h3>Pick your tournament style</h3><p>Each format has its own rhythm. Choose the one that makes matchday feel right.</p><div className="tournament-format-grid">{[{ name: "Swiss System", title: "Swiss", description: "Everyone keeps playing. Pair players with similar scores each round.", icon: Shuffle, badge: "FAIR & FLEXIBLE" }, { name: "Single Elimination", title: "Single elimination", description: "Win and advance. One clean bracket from opening match to champion.", icon: Swords, badge: "WIN OR GO HOME" }, { name: "Round Robin", title: "Round robin", description: "Everyone plays everyone. The ultimate test of consistency.", icon: CircleDot, badge: "EVERYONE MEETS" }].map((option) => <button key={option.name} className={`tournament-format-card ${format === option.name ? "selected" : ""}`} onClick={() => setFormat(option.name)}><span className="tournament-format-icon"><option.icon size={21} /></span><small>{option.badge}</small><strong>{option.title}</strong><p>{option.description}</p><i>{format === option.name ? "Selected" : "Choose format"} {format === option.name && <Check size={13} />}</i></button>)}</div><div className="tournament-options"><label>Time control<select value={control} onChange={(e) => { setControl(e.target.value); setPreset(({ Bullet: "1+0", Blitz: "5+0", Rapid: "10+0", Classical: "60+0", Custom: "5+0" } as any)[e.target.value]); }}>{["Bullet", "Blitz", "Rapid", "Classical", "Custom"].map((value) => <option key={value}>{value}</option>)}</select></label><label>Minutes + increment<input value={preset} onChange={(e) => setPreset(e.target.value)} /></label><label>Boards available<input type="number" min="1" value={boards} onChange={(e) => setBoards(Math.max(1, Number(e.target.value) || 1))} /></label>{format === "Swiss System" && <label>Swiss rounds<input type="number" min="1" value={roundCount} onChange={(e) => setRoundCount(Math.max(1, Number(e.target.value) || 1))} /></label>}</div><div className="tournament-step-actions"><button className="button" onClick={() => setSetupStep(0)}><ArrowLeft size={15} /> Back</button><button className="button tournament-next" onClick={() => setSetupStep(2)}>Review players <ArrowRight size={15} /></button></div></section>}
+        {setupStep === 2 && <section className="tournament-setup-page"><span className="tournament-step-kicker">STEP 3 · THE LINEUP</span><h3>Your players are ready</h3><p>We found {eventPlayers.length} active players from {data.organizations?.find((o: any) => o.id === selectedOrganization)?.name || "your organization"}. Toggle anyone out before pairings.</p><div className="tournament-roster-tools"><label className="roster-search"><Users size={15} /><input value={rosterSearch} onChange={(e) => setRosterSearch(e.target.value)} placeholder="Find a player…" /></label><button className="text-button" onClick={() => setSelectedPlayerIds(players.length === eventPlayers.length ? ["__none__"] : eventPlayers.map((p: any) => p.id))}>{players.length === eventPlayers.length ? "Deselect all" : "Select all"}</button><strong>{players.length} playing</strong></div><div className="tournament-roster">{eventPlayers.filter((p: any) => p.name.toLowerCase().includes(rosterSearch.toLowerCase())).map((player: any, index: number) => { const checked = selectedPlayerIds.length === 0 || selectedPlayerIds.includes(player.id); return <label className={`tournament-roster-player ${checked ? "included" : ""}`} key={player.id}><input type="checkbox" checked={checked} onChange={() => { if (selectedPlayerIds.length === 0) setSelectedPlayerIds(eventPlayers.filter((p: any) => p.id !== player.id).map((p: any) => p.id)); else setSelectedPlayerIds(checked ? selectedPlayerIds.filter((id) => id !== player.id) : selectedPlayerIds.concat(player.id)); }} /><span className="roster-avatar">{player.name.slice(0, 1).toUpperCase()}</span><span className="roster-name"><strong>{player.name}</strong><small>{player.school || "Independent"}</small></span><b>{player.rating || "—"}</b></label>; })}{eventPlayers.length === 0 && <div className="tournament-empty-roster"><Users size={24} /><strong>No active players found</strong><span>Register players to this event or organization, then come back to the draw.</span></div>}</div><div className="tournament-step-actions"><button className="button" onClick={() => setSetupStep(1)}><ArrowLeft size={15} /> Back</button><button className="button tournament-next" disabled={players.length < 2} onClick={previewDraw}>Preview the draw <ArrowRight size={15} /></button></div>{players.length < 2 && <p className="tournament-inline-hint">At least two players are needed to create a tournament.</p>}</section>}
+        {setupStep === 3 && <section className="tournament-setup-page"><span className="tournament-step-kicker">STEP 4 · THE DRAW</span><h3>Ready for the first move?</h3><p>{format} · {players.length} players · {control} {preset}</p>{format === "Single Elimination" ? <div className="tournament-draw-cards"><div className="draw-round-label">ROUND 1 <span>{previewPairings[0]?.length || 0} matches</span></div>{previewPairings[0]?.map((match, index) => <div className="draw-match" key={match.id}><span className="draw-board">{match.bye ? "BYE" : `BOARD ${index + 1}`}</span><strong>{players.find((p: any) => p.id === match.white)?.name || "—"}</strong><i>vs</i><strong>{match.bye ? "Advances directly" : players.find((p: any) => p.id === match.black)?.name || "—"}</strong>{match.bye && <Crown size={15} />}</div>)}</div> : <div className="swiss-pairings-scroll"><table className="swiss-pairings tournament-preview-table"><thead><tr><th>BOARD</th><th>WHITE</th><th>PTS</th><th>VS</th><th>PTS</th><th>BLACK</th></tr></thead><tbody>{previewPairings[0]?.map((match) => <tr key={match.id}><td>{match.bye ? "—" : match.board}</td><td>{players.find((p: any) => p.id === match.white)?.name}</td><td><span className="tournament-points">0.0</span></td><td>{match.bye ? <span className="tournament-bye">BYE · full point</span> : "⚔"}</td><td>{match.bye ? "—" : <span className="tournament-points">0.0</span>}</td><td>{match.bye ? "Automatic advance" : players.find((p: any) => p.id === match.black)?.name}</td></tr>)}</tbody></table></div>}<div className="tournament-step-actions"><button className="button" onClick={() => setSetupStep(2)}><ArrowLeft size={15} /> Edit lineup</button><button className="button tournament-next" onClick={start}><Trophy size={15} /> Start tournament</button></div></section>}
         {error && <p className="error" role="alert">{error}</p>}
-        <button className="button primary" onClick={start}>
-          Create pairings and start
-        </button>
-      </Section>
+      </div>
     );
   }
 

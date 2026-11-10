@@ -321,7 +321,7 @@ export default function Detail({
         )}
         {entity === "events" && (
           <>
-            <button className="button primary" onClick={() => setTab("Tournament")}>
+            <button className="button tournament-start-button" onClick={() => setTab("Tournament")}>
               <span aria-hidden="true">♟</span>
               START
             </button>
